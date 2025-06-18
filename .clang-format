@@ -10,20 +10,20 @@ ContinuationIndentWidth: 4
 # Line length
 ColumnLimit: 120
 
-# Brace style - K&R/1TBS
-BreakBeforeBraces: Linux
+# Brace style
+BreakBeforeBraces: Custom
 BraceWrapping:
   AfterCaseLabel: false
   AfterClass: false
   AfterControlStatement: Never
   AfterEnum: false
-  AfterFunction: false
+  AfterFunction: true
   AfterNamespace: false
   AfterStruct: false
   AfterUnion: false
   AfterExternBlock: false
   BeforeCatch: false
-  BeforeElse: false
+  BeforeElse: true
   BeforeLambdaBody: false
   BeforeWhile: false
   IndentBraces: false

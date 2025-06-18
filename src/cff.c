@@ -53,7 +53,8 @@ static void cff_init_crc_table(void)
         for (int j = 0; j < 8; j++) {
             if (crc & 0x8000) {
                 crc = (crc << 1) ^ CFF_CRC_POLYNOMIAL;
-            } else {
+            }
+            else {
                 crc = crc << 1;
             }
         }
@@ -260,10 +261,12 @@ size_t cff_parse_frames(const uint8_t *buffer, size_t buffer_size_bytes, cff_cal
             callback(&frame);
             frames_parsed++;
             consumed_bytes += frame_size_bytes;
-        } else if (error == cff_error_incomplete_frame) {
+        }
+        else if (error == cff_error_incomplete_frame) {
             // Not enough data for a complete frame, stop parsing
             break;
-        } else {
+        }
+        else {
             // Invalid frame found, advance by 1 to continue searching
             consumed_bytes++;
         }

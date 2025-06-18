@@ -124,7 +124,8 @@ static void store_payload(const uint8_t *payload, size_t size, uint16_t frame_co
             return; // Memory allocation failed
         }
         memcpy(extracted_payloads[num_extracted_payloads].data, payload, size);
-    } else {
+    }
+    else {
         // Empty payload
         extracted_payloads[num_extracted_payloads].data = NULL;
     }
@@ -147,7 +148,8 @@ void stream_frame_callback(const cff_frame_t *frame)
         // Handle both empty and non-empty payloads
         if (frame->header.payload_size_bytes > 0 && frame->payload) {
             store_payload(frame->payload, frame->header.payload_size_bytes, frame->header.frame_counter);
-        } else {
+        }
+        else {
             // Handle empty payload
             store_payload(NULL, 0, frame->header.frame_counter);
         }
@@ -186,7 +188,8 @@ void test_parse_individual_frame_files(void)
         // Store payload for later comparison
         if (frame.header.payload_size_bytes > 0) {
             store_payload(frame.payload, frame.header.payload_size_bytes, frame.header.frame_counter);
-        } else {
+        }
+        else {
             // Store empty payload
             store_payload(NULL, 0, frame.header.frame_counter);
         }
@@ -336,7 +339,8 @@ void test_round_trip_consistency(void)
         // Store payload
         if (frame.header.payload_size_bytes > 0) {
             store_payload(frame.payload, frame.header.payload_size_bytes, frame.header.frame_counter);
-        } else {
+        }
+        else {
             store_payload(NULL, 0, frame.header.frame_counter);
         }
 
@@ -352,7 +356,8 @@ void test_round_trip_consistency(void)
         if (extracted_payloads[i].size > 0) {
             individual_payloads[i].data = malloc(extracted_payloads[i].size);
             memcpy(individual_payloads[i].data, extracted_payloads[i].data, extracted_payloads[i].size);
-        } else {
+        }
+        else {
             individual_payloads[i].data = NULL;
         }
     }
