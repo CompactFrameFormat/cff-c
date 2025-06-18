@@ -1,0 +1,7 @@
+# C Reference Implementation of Compact Frame Format
+
+> Compact Frame Format (CFF) is a way of delineating messages in a byte stream, designed specifically for Microcontrollers (MCUs) to take advantage of hardware acceleration like DMA controllers and CRC peripherals.
+
+## Docs
+
+- [README.md](README.md): Complete documentation including overview, usage examples, and development setup 
