@@ -1,0 +1,2 @@
+# This file ensures the test/support directory is not empty
+# and is properly tracked by git for Ceedling builds 
