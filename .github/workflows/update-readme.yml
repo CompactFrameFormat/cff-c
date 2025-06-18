@@ -1,0 +1,91 @@
+name: Update README with Usage Example
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'example/usage_example.c'
+      - 'README.md'
+      - '.github/workflows/update-readme.yml'  # Also run when this workflow changes
+  workflow_dispatch:  # Allow manual triggering
+
+permissions:
+  contents: write
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Update README with latest usage example
+      run: |
+        # Read the usage example file
+        USAGE_EXAMPLE=$(cat example/usage_example.c)
+        
+        # Create a Python script to update the README
+        cat > update_readme.py << 'EOF'
+        import re
+        import sys
+        
+        def update_readme_code_block(readme_content, new_code):
+            # Pattern to match the C code block in the Usage section
+            # Look for the pattern: ```c followed by content followed by ```
+            # This pattern looks for the code block after the usage example link
+            pattern = r'(Here\'s a complete working example.*?```c\n)(.*?)(```)'
+            
+            def replacer(match):
+                return match.group(1) + new_code + '\n' + match.group(3)
+            
+            updated_content = re.sub(pattern, replacer, readme_content, flags=re.DOTALL)
+            
+            if updated_content == readme_content:
+                print("No code block found to update", file=sys.stderr)
+                return None
+                
+            return updated_content
+        
+        # Read current README
+        with open('README.md', 'r') as f:
+            readme_content = f.read()
+        
+        # Read new code
+        with open('example/usage_example.c', 'r') as f:
+            new_code = f.read()
+        
+        # Update the README
+        updated_readme = update_readme_code_block(readme_content, new_code)
+        
+        if updated_readme is None:
+            print("Failed to update README")
+            sys.exit(1)
+        
+        # Check if anything actually changed
+        if updated_readme == readme_content:
+            print("No changes needed to README.md")
+        else:
+            # Write the updated README
+            with open('README.md', 'w') as f:
+                f.write(updated_readme)
+            print("README.md updated with latest usage example")
+        EOF
+        
+        # Run the Python script
+        python3 update_readme.py
+        
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        if git diff --quiet; then
+          echo "No changes to commit"
+        else
+          git add README.md
+          git commit -m "Auto-update README with latest usage example [skip ci]"
+          git push
+        fi 
