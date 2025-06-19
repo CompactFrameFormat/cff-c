@@ -38,38 +38,46 @@ jobs:
             # This pattern looks for the code block after the usage example link
             pattern = r'(Here\'s a complete working example.*?```c\n)(.*?)(```)'
             
+            # Track if we found and replaced the pattern
+            pattern_found = False
+            
             def replacer(match):
+                nonlocal pattern_found
+                pattern_found = True
                 return match.group(1) + new_code + '\n' + match.group(3)
             
             updated_content = re.sub(pattern, replacer, readme_content, flags=re.DOTALL)
             
-            if updated_content == readme_content:
-                print("No code block found to update", file=sys.stderr)
-                return None
+            if not pattern_found:
+                print("ERROR: Could not find the code block pattern to update", file=sys.stderr)
+                return None, False
                 
-            return updated_content
+            # Check if the replacement actually changed anything
+            content_changed = updated_content != readme_content
+            return updated_content, content_changed
         
         # Read current README
-        with open('README.md', 'r') as f:
+        with open('README.md', 'r', encoding='utf-8-sig') as f:
             readme_content = f.read()
         
         # Read new code
-        with open('example/usage_example.c', 'r') as f:
+        with open('example/usage_example.c', 'r', encoding='utf-8-sig') as f:
             new_code = f.read()
         
         # Update the README
-        updated_readme = update_readme_code_block(readme_content, new_code)
+        result = update_readme_code_block(readme_content, new_code)
         
-        if updated_readme is None:
-            print("Failed to update README")
+        if result is None or result[0] is None:
+            print("Failed to update README - code block pattern not found")
             sys.exit(1)
         
-        # Check if anything actually changed
-        if updated_readme == readme_content:
-            print("No changes needed to README.md")
+        updated_readme, content_changed = result
+        
+        if not content_changed:
+            print("Code block found and processed, but no changes needed to README.md")
         else:
             # Write the updated README
-            with open('README.md', 'w') as f:
+            with open('README.md', 'w', encoding='utf-8-sig') as f:
                 f.write(updated_readme)
             print("README.md updated with latest usage example")
         EOF
