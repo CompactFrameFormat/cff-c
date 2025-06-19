@@ -109,10 +109,11 @@ typedef enum cff_error_en_t {
 //! Contains all header fields of a CFF frame including preamble,
 //! frame counter, payload size, and header CRC.
 typedef struct cff_header_t {
-    uint8_t preamble[2];         //!< Frame preamble bytes
-    uint16_t frame_counter;      //!< Incremental frame counter
-    uint16_t payload_size_bytes; //!< Size of payload in bytes
-    uint16_t header_crc;         //!< CRC16 checksum of header fields (preamble, frame counter, payload size)
+    uint8_t preamble[CFF_PREAMBLE_SIZE_BYTES]; //!< Frame preamble bytes
+    uint16_t frame_counter;                    //!< Incremental frame counter
+    uint16_t payload_size_bytes;               //!< Size of payload in bytes
+    uint16_t header_crc;                       //!< CRC16 checksum of header fields (preamble, frame counter,
+                                               //!< payload size)
 } cff_header_t;
 
 //! @brief Complete CFF frame structure

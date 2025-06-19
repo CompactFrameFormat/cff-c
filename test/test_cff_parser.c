@@ -321,3 +321,23 @@ void test_parse_frames_empty_buffer(void)
     TEST_ASSERT_EQUAL(0, frames_parsed);
     TEST_ASSERT_EQUAL(0, callback_count);
 }
+
+void test_parse_frames_small_buffer(void)
+{
+    uint8_t frame_buffer[100];
+    const char *test_payload = "Hello";
+    size_t frame_size = build_test_frame(frame_buffer, sizeof(frame_buffer), test_payload);
+
+    // Test parsing with every buffer size from 1 up to frame_size - 1
+    for (size_t buffer_size = 1; buffer_size < frame_size; buffer_size++) {
+        // Reset callback state for each iteration
+        callback_count = 0;
+        memset(captured_frames, 0, sizeof(captured_frames));
+
+        size_t frames_parsed = cff_parse_frames(frame_buffer, buffer_size, frame_callback);
+
+        // All partial buffer sizes should result in 0 frames parsed
+        TEST_ASSERT_EQUAL(0, frames_parsed);
+        TEST_ASSERT_EQUAL(0, callback_count);
+    }
+}

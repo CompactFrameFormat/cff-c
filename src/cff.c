@@ -220,7 +220,11 @@ cff_error_en_t cff_parse_frame(const uint8_t *buffer, size_t buffer_size_bytes, 
 
 static size_t cff_find_preamble(const uint8_t *buffer, size_t buffer_size_bytes, size_t start_position)
 {
-    for (size_t i = start_position; i <= buffer_size_bytes - 2; i++) {
+    if (start_position + CFF_PREAMBLE_SIZE_BYTES > buffer_size_bytes) {
+        return buffer_size_bytes;
+    }
+
+    for (size_t i = start_position; i <= buffer_size_bytes - CFF_PREAMBLE_SIZE_BYTES; i++) {
         if (buffer[i] == CFF_PREAMBLE_BYTE_0 && buffer[i + 1] == CFF_PREAMBLE_BYTE_1) {
             return i;
         }
