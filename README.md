@@ -156,8 +156,16 @@ pip install pre-commit
 pre-commit install
 ```
 
-Build and Test:
+### Code Quality
+
+Format code:
 ```powershell
-# Run all tests
+rake format
+```
+
+### Testing
+
+Run the tests:
+```powershell
 ceedling test:all
 ```
