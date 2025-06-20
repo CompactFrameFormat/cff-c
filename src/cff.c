@@ -37,6 +37,86 @@ static void cff_set_uint16_le(uint8_t *data, uint16_t value)
     data[1] = (uint8_t) ((value >> 8) & 0xFF);
 }
 
+// Ring Buffer Implementation ------------------------------------------------------------------------------------------
+
+cff_error_en_t cff_ring_buffer_init(cff_ring_buffer_t *ring_buffer, CFF_RB_T *buffer, uint32_t buffer_size)
+{
+    if (ring_buffer == NULL || buffer == NULL) {
+        return cff_error_null_pointer;
+    }
+
+    if (buffer_size == 0) {
+        return cff_error_buffer_too_small;
+    }
+
+    ring_buffer->buffer = buffer;
+    ring_buffer->buffer_size = buffer_size;
+    ring_buffer->append_index = 0;
+    ring_buffer->consume_index = 0;
+    ring_buffer->free_space = buffer_size;
+
+    // Initialize buffer to zero
+    memset(buffer, 0, buffer_size * sizeof(CFF_RB_T));
+
+    return cff_error_none;
+}
+
+cff_error_en_t cff_ring_buffer_append(cff_ring_buffer_t *ring_buffer, const CFF_RB_T *items, uint32_t number_of_items)
+{
+    if (ring_buffer == NULL || items == NULL) {
+        return cff_error_null_pointer;
+    }
+
+    if (number_of_items > ring_buffer->free_space) {
+        return cff_error_insufficient_space;
+    }
+
+    if (ring_buffer->append_index + number_of_items > ring_buffer->buffer_size) {
+        // Wrap-around
+        uint32_t amount_to_copy = CFF_MIN(number_of_items, ring_buffer->buffer_size - ring_buffer->append_index);
+        memcpy(ring_buffer->buffer + ring_buffer->append_index, items, amount_to_copy * sizeof(CFF_RB_T));
+        ring_buffer->append_index = (ring_buffer->append_index + amount_to_copy) % ring_buffer->buffer_size;
+        ring_buffer->free_space -= amount_to_copy;
+        number_of_items -= amount_to_copy;
+        items += amount_to_copy;
+    }
+
+    // Now append_index is before consume_index, so we can copy up to it
+    memcpy(ring_buffer->buffer + ring_buffer->append_index, items, number_of_items * sizeof(CFF_RB_T));
+    ring_buffer->append_index = (ring_buffer->append_index + number_of_items) % ring_buffer->buffer_size;
+    ring_buffer->free_space -= number_of_items;
+
+    return cff_error_none;
+}
+
+cff_error_en_t cff_ring_buffer_consume(cff_ring_buffer_t *ring_buffer, CFF_RB_T *items, uint32_t number_of_items)
+{
+    if (ring_buffer == NULL || items == NULL) {
+        return cff_error_null_pointer;
+    }
+
+    if (number_of_items > (ring_buffer->buffer_size - ring_buffer->free_space)) {
+        return cff_error_insufficient_space;
+    }
+
+    if (ring_buffer->consume_index + number_of_items > ring_buffer->buffer_size) {
+        // Wrap-around
+        uint32_t amount_to_consume = CFF_MIN(number_of_items, ring_buffer->buffer_size - ring_buffer->consume_index);
+        memcpy(items, ring_buffer->buffer + ring_buffer->consume_index, amount_to_consume * sizeof(CFF_RB_T));
+        ring_buffer->consume_index = (ring_buffer->consume_index + amount_to_consume) % ring_buffer->buffer_size;
+        ring_buffer->free_space += amount_to_consume;
+        number_of_items -= amount_to_consume;
+        items += amount_to_consume;
+    }
+
+    // Now consume_index is before append_index, so we can consume up to it
+    memcpy(items, ring_buffer->buffer + ring_buffer->consume_index, number_of_items * sizeof(CFF_RB_T));
+    ring_buffer->consume_index = (ring_buffer->consume_index + number_of_items) % ring_buffer->buffer_size;
+    ring_buffer->free_space += number_of_items;
+
+    return cff_error_none;
+}
+
 // CRC Calulation ------------------------------------------------------------------------------------------------------
 
 static uint16_t cff_crc_table[256] = {0};

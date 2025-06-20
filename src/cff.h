@@ -74,11 +74,19 @@ extern "C" {
 //! @brief Maximum allowed payload size in bytes
 #define CFF_MAX_PAYLOAD_SIZE_BYTES 65535
 
+//! @brief Ring buffer element type (can be overridden by defining CFF_RB_T before including this header)
+#ifndef CFF_RB_T
+#define CFF_RB_T uint8_t
+#endif
+
 //! @brief CRC16 polynomial used for checksum calculation
 #define CFF_CRC_POLYNOMIAL 0x1021
 
 //! @brief Initial value for CRC16 calculation
 #define CFF_CRC_INIT 0xFFFF
+
+//! @brief Macro to find the minimum of two values
+#define CFF_MIN(a, b) ((a) < (b) ? (a) : (b))
 
 //! @}
 
@@ -96,7 +104,57 @@ typedef enum cff_error_en_t {
     cff_error_buffer_too_small,    //!< Provided buffer is too small
     cff_error_payload_too_large,   //!< Payload exceeds maximum allowed size
     cff_error_incomplete_frame,    //!< Frame data is incomplete
+    cff_error_insufficient_space,  //!< Insufficient space for ring buffer operation
 } cff_error_en_t;
+
+//! @}
+
+//! @defgroup cff_ring_buffer CFF Ring Buffer
+//! @brief Ring buffer operations for the Compact Frame Format
+//! @{
+
+//! @brief Ring buffer structure for circular buffer operations
+//!
+//! Used to manage a circular buffer with external storage. The buffer and size are provided during initialization.
+typedef struct cff_ring_buffer_t {
+    CFF_RB_T *buffer;       //!< Pointer to external buffer storage
+    uint32_t buffer_size;   //!< Size of the buffer in elements
+    uint32_t append_index;  //!< Index where next element will be appended
+    uint32_t consume_index; //!< Index where next element will be consumed
+    uint32_t free_space;    //!< Number of free elements in the buffer
+} cff_ring_buffer_t;
+
+//! @brief Initialize a ring buffer with external storage
+//!
+//! Initializes a ring buffer structure with the provided external buffer. The buffer and its size are managed by the
+//! client code.
+//!
+//! @param ring_buffer Pointer to ring buffer structure to initialize
+//! @param buffer Pointer to external buffer storage
+//! @param buffer_size Size of the buffer in elements
+//! @return cff_error_none on success, error code on failure
+cff_error_en_t cff_ring_buffer_init(cff_ring_buffer_t *ring_buffer, CFF_RB_T *buffer, uint32_t buffer_size);
+
+//! @brief Append elements to the ring buffer
+//!
+//! Appends the specified number of elements to the ring buffer.
+//!
+//! @param ring_buffer Pointer to initialized ring buffer
+//! @param items Pointer to elements to append
+//! @param number_of_items Number of elements to append
+//! @return cff_error_none on success, error code on failure
+cff_error_en_t cff_ring_buffer_append(cff_ring_buffer_t *ring_buffer, const CFF_RB_T *items, uint32_t number_of_items);
+
+//! @brief Consume elements from the ring buffer
+//!
+//! Consumes the specified number of elements from the ring buffer.
+//! Handles wrap-around automatically.
+//!
+//! @param ring_buffer Pointer to initialized ring buffer
+//! @param items Pointer to buffer to store consumed elements
+//! @param number_of_items Number of elements to consume
+//! @return cff_error_none on success, error code on failure
+cff_error_en_t cff_ring_buffer_consume(cff_ring_buffer_t *ring_buffer, CFF_RB_T *items, uint32_t number_of_items);
 
 //! @}
 
