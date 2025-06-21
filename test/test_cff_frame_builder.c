@@ -1,4 +1,5 @@
 #include "cff.h"
+#include "common_utils.h"
 #include "unity.h"
 #include <string.h>
 
@@ -212,11 +213,15 @@ void test_frame_counter_rollover_sequence(void)
     cff_error_en_t result1 = cff_build_frame(&builder, (const uint8_t *) payload, strlen(payload));
     TEST_ASSERT_EQUAL(cff_error_none, result1);
 
-    // Parse and verify counter
+    // Parse and verify counter using ring buffer
     cff_frame_t frame1;
-    size_t consumed_bytes1;
     size_t frame_size = cff_calculate_frame_size_bytes(strlen(payload));
-    cff_error_en_t parse_result1 = cff_parse_frame(frame_buffer, frame_size, &frame1, &consumed_bytes1);
+
+    uint8_t ring_storage1[200];
+    cff_ring_buffer_t ring_buffer1;
+    setup_ring_buffer_from_data(&ring_buffer1, ring_storage1, sizeof(ring_storage1), frame_buffer, frame_size);
+
+    cff_error_en_t parse_result1 = cff_parse_frame(&ring_buffer1, &frame1);
     TEST_ASSERT_EQUAL(cff_error_none, parse_result1);
     TEST_ASSERT_EQUAL(65534, frame1.header.frame_counter);
 
@@ -225,8 +230,11 @@ void test_frame_counter_rollover_sequence(void)
     TEST_ASSERT_EQUAL(cff_error_none, result2);
 
     cff_frame_t frame2;
-    size_t consumed_bytes2;
-    cff_error_en_t parse_result2 = cff_parse_frame(frame_buffer, frame_size, &frame2, &consumed_bytes2);
+    uint8_t ring_storage2[200];
+    cff_ring_buffer_t ring_buffer2;
+    setup_ring_buffer_from_data(&ring_buffer2, ring_storage2, sizeof(ring_storage2), frame_buffer, frame_size);
+
+    cff_error_en_t parse_result2 = cff_parse_frame(&ring_buffer2, &frame2);
     TEST_ASSERT_EQUAL(cff_error_none, parse_result2);
     TEST_ASSERT_EQUAL(65535, frame2.header.frame_counter);
 
@@ -235,8 +243,11 @@ void test_frame_counter_rollover_sequence(void)
     TEST_ASSERT_EQUAL(cff_error_none, result3);
 
     cff_frame_t frame3;
-    size_t consumed_bytes3;
-    cff_error_en_t parse_result3 = cff_parse_frame(frame_buffer, frame_size, &frame3, &consumed_bytes3);
+    uint8_t ring_storage3[200];
+    cff_ring_buffer_t ring_buffer3;
+    setup_ring_buffer_from_data(&ring_buffer3, ring_storage3, sizeof(ring_storage3), frame_buffer, frame_size);
+
+    cff_error_en_t parse_result3 = cff_parse_frame(&ring_buffer3, &frame3);
     TEST_ASSERT_EQUAL(cff_error_none, parse_result3);
     TEST_ASSERT_EQUAL(0, frame3.header.frame_counter);
 }
@@ -285,8 +296,11 @@ void test_sequential_frames_with_different_payloads(void)
         size_t frame_size = cff_calculate_frame_size_bytes(payload_size);
 
         cff_frame_t parsed_frame;
-        size_t consumed_bytes;
-        cff_error_en_t parse_result = cff_parse_frame(frame_buffer, frame_size, &parsed_frame, &consumed_bytes);
+        uint8_t ring_storage[300];
+        cff_ring_buffer_t ring_buffer;
+        setup_ring_buffer_from_data(&ring_buffer, ring_storage, sizeof(ring_storage), frame_buffer, frame_size);
+
+        cff_error_en_t parse_result = cff_parse_frame(&ring_buffer, &parsed_frame);
         TEST_ASSERT_EQUAL(cff_error_none, parse_result);
 
         // Verify frame counter increments
@@ -295,7 +309,11 @@ void test_sequential_frames_with_different_payloads(void)
         // Verify payload
         TEST_ASSERT_EQUAL(payload_size, parsed_frame.header.payload_size_bytes);
         if (payload_size > 0) {
-            TEST_ASSERT_EQUAL_MEMORY(payloads[i], parsed_frame.payload, payload_size);
+            // Test payload copy function to handle ring buffer wrapping
+            uint8_t copied_payload[100];
+            cff_error_en_t copy_result = cff_copy_frame_payload(&parsed_frame, copied_payload, sizeof(copied_payload));
+            TEST_ASSERT_EQUAL(cff_error_none, copy_result);
+            TEST_ASSERT_EQUAL_MEMORY(payloads[i], copied_payload, payload_size);
         }
     }
 }
@@ -315,8 +333,11 @@ void test_zero_and_max_counter_values(void)
 
     size_t frame_size = cff_calculate_frame_size_bytes(strlen(payload));
     cff_frame_t frame1;
-    size_t consumed_bytes1;
-    cff_error_en_t parse_result1 = cff_parse_frame(frame_buffer, frame_size, &frame1, &consumed_bytes1);
+    uint8_t ring_storage1[100];
+    cff_ring_buffer_t ring_buffer1;
+    setup_ring_buffer_from_data(&ring_buffer1, ring_storage1, sizeof(ring_storage1), frame_buffer, frame_size);
+
+    cff_error_en_t parse_result1 = cff_parse_frame(&ring_buffer1, &frame1);
     TEST_ASSERT_EQUAL(cff_error_none, parse_result1);
     TEST_ASSERT_EQUAL(0, frame1.header.frame_counter);
 
@@ -329,8 +350,11 @@ void test_zero_and_max_counter_values(void)
 
     frame_size = cff_calculate_frame_size_bytes(strlen(payload));
     cff_frame_t frame2;
-    size_t consumed_bytes2;
-    cff_error_en_t parse_result2 = cff_parse_frame(frame_buffer, frame_size, &frame2, &consumed_bytes2);
+    uint8_t ring_storage2[100];
+    cff_ring_buffer_t ring_buffer2;
+    setup_ring_buffer_from_data(&ring_buffer2, ring_storage2, sizeof(ring_storage2), frame_buffer, frame_size);
+
+    cff_error_en_t parse_result2 = cff_parse_frame(&ring_buffer2, &frame2);
     TEST_ASSERT_EQUAL(cff_error_none, parse_result2);
     TEST_ASSERT_EQUAL(65535, frame2.header.frame_counter);
 }

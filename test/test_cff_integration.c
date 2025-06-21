@@ -1,4 +1,5 @@
 #include "cff.h"
+#include "common_utils.h"
 #include "unity.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -146,8 +147,16 @@ void stream_frame_callback(const cff_frame_t *frame)
 {
     if (frame) {
         // Handle both empty and non-empty payloads
-        if (frame->header.payload_size_bytes > 0 && frame->payload) {
-            store_payload(frame->payload, frame->header.payload_size_bytes, frame->header.frame_counter);
+        if (frame->payload_size_bytes > 0 && frame->payload) {
+            // Copy payload from ring buffer to linear buffer
+            uint8_t *payload_buffer = malloc(frame->payload_size_bytes);
+            if (payload_buffer) {
+                cff_error_en_t copy_result = cff_copy_frame_payload(frame, payload_buffer, frame->payload_size_bytes);
+                if (copy_result == cff_error_none) {
+                    store_payload(payload_buffer, frame->payload_size_bytes, frame->header.frame_counter);
+                }
+                free(payload_buffer);
+            }
         }
         else {
             // Handle empty payload
@@ -173,21 +182,31 @@ void test_parse_individual_frame_files(void)
         TEST_ASSERT_NOT_NULL_MESSAGE(file_data, "Failed to read frame file");
         TEST_ASSERT_GREATER_THAN(0, file_size);
 
+        // Set up ring buffer with file data
+        uint8_t ring_storage[8192]; // Large enough for test frames
+        cff_ring_buffer_t ring_buffer;
+        setup_ring_buffer_from_data(&ring_buffer, ring_storage, sizeof(ring_storage), file_data, file_size);
+
         // Parse the frame
         cff_frame_t frame;
-        size_t consumed_bytes;
-        cff_error_en_t result = cff_parse_frame(file_data, file_size, &frame, &consumed_bytes);
+        cff_error_en_t result = cff_parse_frame(&ring_buffer, &frame);
 
         TEST_ASSERT_EQUAL_MESSAGE(cff_error_none, result, "Failed to parse individual frame");
-        TEST_ASSERT_EQUAL_MESSAGE(file_size, consumed_bytes, "Frame size mismatch");
 
         // Verify frame structure
         TEST_ASSERT_EQUAL_HEX8(CFF_PREAMBLE_BYTE_0, frame.header.preamble[0]);
         TEST_ASSERT_EQUAL_HEX8(CFF_PREAMBLE_BYTE_1, frame.header.preamble[1]);
 
         // Store payload for later comparison
-        if (frame.header.payload_size_bytes > 0) {
-            store_payload(frame.payload, frame.header.payload_size_bytes, frame.header.frame_counter);
+        if (frame.payload_size_bytes > 0) {
+            uint8_t *payload_buffer = malloc(frame.payload_size_bytes);
+            if (payload_buffer) {
+                cff_error_en_t copy_result = cff_copy_frame_payload(&frame, payload_buffer, frame.payload_size_bytes);
+                if (copy_result == cff_error_none) {
+                    store_payload(payload_buffer, frame.payload_size_bytes, frame.header.frame_counter);
+                }
+                free(payload_buffer);
+            }
         }
         else {
             // Store empty payload
@@ -225,8 +244,13 @@ void test_parse_combined_stream(void)
     memset(extracted_payloads, 0, sizeof(extracted_payloads));
     num_extracted_payloads = 0;
 
+    // Set up ring buffer with stream data
+    uint8_t ring_storage[8192]; // Large enough for test stream
+    cff_ring_buffer_t ring_buffer;
+    setup_ring_buffer_from_data(&ring_buffer, ring_storage, sizeof(ring_storage), stream_buffer, stream_size);
+
     // Parse the stream
-    size_t parsed_frames = cff_parse_frames(stream_buffer, stream_size, stream_frame_callback);
+    size_t parsed_frames = cff_parse_frames(&ring_buffer, stream_frame_callback);
 
     // We should have parsed all frames (based on the individual files)
     TEST_ASSERT_EQUAL(num_test_frame_files, parsed_frames);
@@ -262,8 +286,13 @@ void test_recreate_frames_and_verify_stream(void)
     memset(extracted_payloads, 0, sizeof(extracted_payloads));
     num_extracted_payloads = 0;
 
+    // Set up ring buffer with stream data
+    uint8_t ring_storage[8192]; // Large enough for test stream
+    cff_ring_buffer_t ring_buffer;
+    setup_ring_buffer_from_data(&ring_buffer, ring_storage, sizeof(ring_storage), byte_stream, stream_size);
+
     // Parse the stream to extract payloads in order
-    cff_parse_frames(byte_stream, stream_size, stream_frame_callback);
+    cff_parse_frames(&ring_buffer, stream_frame_callback);
 
     // Create a buffer to hold recreated stream
     uint8_t recreated_stream[2048];
@@ -331,14 +360,25 @@ void test_round_trip_consistency(void)
         uint8_t *file_data = read_binary_file(test_frame_files[i], &file_size);
         TEST_ASSERT_NOT_NULL(file_data);
 
+        // Set up ring buffer with file data
+        uint8_t ring_storage[8192]; // Large enough for test frames
+        cff_ring_buffer_t ring_buffer;
+        setup_ring_buffer_from_data(&ring_buffer, ring_storage, sizeof(ring_storage), file_data, file_size);
+
         cff_frame_t frame;
-        size_t consumed_bytes;
-        cff_error_en_t result = cff_parse_frame(file_data, file_size, &frame, &consumed_bytes);
+        cff_error_en_t result = cff_parse_frame(&ring_buffer, &frame);
         TEST_ASSERT_EQUAL(cff_error_none, result);
 
         // Store payload
-        if (frame.header.payload_size_bytes > 0) {
-            store_payload(frame.payload, frame.header.payload_size_bytes, frame.header.frame_counter);
+        if (frame.payload_size_bytes > 0) {
+            uint8_t *payload_buffer = malloc(frame.payload_size_bytes);
+            if (payload_buffer) {
+                cff_error_en_t copy_result = cff_copy_frame_payload(&frame, payload_buffer, frame.payload_size_bytes);
+                if (copy_result == cff_error_none) {
+                    store_payload(payload_buffer, frame.payload_size_bytes, frame.header.frame_counter);
+                }
+                free(payload_buffer);
+            }
         }
         else {
             store_payload(NULL, 0, frame.header.frame_counter);
@@ -375,8 +415,14 @@ void test_round_trip_consistency(void)
     memset(extracted_payloads, 0, sizeof(extracted_payloads));
     num_extracted_payloads = 0;
 
+    // Set up ring buffer with stream data
+    uint8_t stream_ring_storage[8192]; // Large enough for test stream
+    cff_ring_buffer_t stream_ring_buffer;
+    setup_ring_buffer_from_data(&stream_ring_buffer, stream_ring_storage, sizeof(stream_ring_storage), stream_data,
+                                stream_size);
+
     // Parse stream
-    size_t parsed_frames = cff_parse_frames(stream_data, stream_size, stream_frame_callback);
+    size_t parsed_frames = cff_parse_frames(&stream_ring_buffer, stream_frame_callback);
     TEST_ASSERT_EQUAL(num_test_frame_files, parsed_frames);
 
     // Step 3: Compare payloads from individual files vs stream
@@ -431,8 +477,14 @@ void test_stream_parsing_error_recovery(void)
         memset(extracted_payloads, 0, sizeof(extracted_payloads));
         num_extracted_payloads = 0;
 
+        // Set up ring buffer with corrupted stream data
+        uint8_t corrupted_ring_storage[8192]; // Large enough for test stream
+        cff_ring_buffer_t corrupted_ring_buffer;
+        setup_ring_buffer_from_data(&corrupted_ring_buffer, corrupted_ring_storage, sizeof(corrupted_ring_storage),
+                                    byte_stream, stream_size_bytes);
+
         // Parse the corrupted stream
-        size_t parsed_frames = cff_parse_frames(byte_stream, stream_size_bytes, stream_frame_callback);
+        size_t parsed_frames = cff_parse_frames(&corrupted_ring_buffer, stream_frame_callback);
 
         // Corrupting any single byte should result in exactly one frame being corrupted,
         // so we should parse exactly (num_test_frame_files - 1) frames
