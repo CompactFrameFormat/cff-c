@@ -120,7 +120,7 @@ You can build and run it using CMake:
 
 ```powershell
 cd example
-mkdir build
+mkdir -Force build
 cd build
 cmake ..
 cmake --build .

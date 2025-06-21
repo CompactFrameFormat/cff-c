@@ -5,11 +5,22 @@
 // Callback function to handle parsed frames
 void frame_handler(const cff_frame_t *frame)
 {
-    printf("Received frame %d with %zu byte payload: ", frame->header.frame_counter, frame->payload_size_bytes_bytes);
+    printf("Received frame %d with %zu byte payload: ", frame->header.frame_counter, frame->payload_size_bytes);
 
-    // Print payload as string (assuming it's text)
-    for (size_t i = 0; i < frame->payload_size_bytes_bytes; i++) {
-        printf("%c", frame->payload[i]);
+    // Copy payload from ring buffer to linear buffer for printing
+    if (frame->payload_size_bytes > 0) {
+        uint8_t payload_buffer[256]; // Assume payload won't exceed this size for the example
+        cff_error_en_t copy_result = cff_copy_frame_payload(frame, payload_buffer, sizeof(payload_buffer));
+
+        if (copy_result == cff_error_none) {
+            // Print payload as string (assuming it's text)
+            for (size_t i = 0; i < frame->payload_size_bytes; i++) {
+                printf("%c", payload_buffer[i]);
+            }
+        }
+        else {
+            printf("[Error copying payload]");
+        }
     }
     printf("\n");
 }
@@ -55,11 +66,29 @@ int main()
 
     printf("\nTotal stream size: %zu bytes\n\n", stream_pos);
 
-    // Parse all frames from the stream
+    // Parse all frames from the stream using ring buffer
     printf("Parsing frames:\n");
-    size_t consumed = cff_parse_frames(frame_stream, stream_pos, frame_handler);
 
-    printf("\nParsed %zu bytes from stream\n", consumed);
+    // Set up ring buffer with the frame stream data
+    uint8_t ring_storage[1024]; // Large enough for our example stream
+    cff_ring_buffer_t ring_buffer;
+    cff_error_en_t ring_result = cff_ring_buffer_init(&ring_buffer, ring_storage, sizeof(ring_storage));
+    if (ring_result != cff_error_none) {
+        printf("Failed to initialize ring buffer\n");
+        return -1;
+    }
+
+    // Append stream data to ring buffer
+    ring_result = cff_ring_buffer_append(&ring_buffer, frame_stream, (uint32_t) stream_pos);
+    if (ring_result != cff_error_none) {
+        printf("Failed to append data to ring buffer\n");
+        return -1;
+    }
+
+    // Parse frames from ring buffer
+    size_t parsed_frames = cff_parse_frames(&ring_buffer, frame_handler);
+
+    printf("\nParsed %zu frames from stream\n", parsed_frames);
 
     return 0;
 }

@@ -20,11 +20,13 @@ namespace :format do
     test_patterns = PATHS[:test].select { |path| !path.start_with?('-:') }
                                 .map { |path| path.sub(/^\+:/, '') }
                                 .map { |path| File.join(path, '**', '*.{c,h}') }
+    example_patterns = ['example/**/*.{c,h}']
     
     # Exclude support directories and unity files
     source_files = FileList[*source_patterns]
     test_files = FileList[*test_patterns].exclude('test/support/**/*', 'test/unity.*')
-    all_files = source_files + test_files
+    example_files = FileList[*example_patterns].exclude('example/build/**/*')
+    all_files = source_files + test_files + example_files
     
     if all_files.empty?
       puts "No source or test files found to format."
@@ -61,11 +63,13 @@ namespace :format do
     test_patterns = PATHS[:test].select { |path| !path.start_with?('-:') }
                                 .map { |path| path.sub(/^\+:/, '') }
                                 .map { |path| File.join(path, '**', '*.{c,h}') }
+    example_patterns = ['example/**/*.{c,h}']
     
     # Exclude support directories and unity files
     source_files = FileList[*source_patterns]
     test_files = FileList[*test_patterns].exclude('test/support/**/*', 'test/unity.*')
-    all_files = source_files + test_files
+    example_files = FileList[*example_patterns].exclude('example/build/**/*')
+    all_files = source_files + test_files + example_files
     
     if all_files.empty?
       puts "No source or test files found to check."

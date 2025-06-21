@@ -1,2 +1,4 @@
 *.DS_Store
 build/
+example/build/
+usage_example.exe
